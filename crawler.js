@@ -1,8 +1,10 @@
 const puppeteer = require('puppeteer');
 
-async function extractData(xpath, page, index = 0) {
+async function extractData(xpath, page, index = 0, timeout = 0) {
+    await page.waitFor(timeout);
     let dataSet = await page.$x(xpath);
-    console.log(index);
+    
+    //console.log(index);
     let data = await page.evaluate((el) => {
         return el.innerText;
     }, dataSet[index]);
@@ -10,7 +12,8 @@ async function extractData(xpath, page, index = 0) {
 }
 
 
-async function clickItem(xpath, page, index = 0) {
+async function clickItem(xpath, page, index = 0, timeout = 0) {
+    await page.waitFor(timeout);
     let link = await page.$x(xpath);
 
     await page.evaluate((el) => {
@@ -22,21 +25,23 @@ async function clickItem(xpath, page, index = 0) {
 
 
 async function loop(settings, actions, page) {
-
-    let counts = settings[0];
+    let timeout = settings.timeout;
+    let counts = settings.loopCounts;
     let size = actions.length;
+    await page.waitFor(timeout);
+
     for (var i = 0; i < counts; i++) {
         for (var j = 0; j < size; j++) {
-            switch (actions[j]) {
+            switch (actions[j].actionType) {
                 case "ExtractData":
-                    let data = await extractData(settings[j + 1], page, i);
+                    let data = await extractData(actions[j].settings.xpath, page, i, actions[j].settings.timeout);
                     console.log(data);
                     break;
                 case "ClickItem" :
-                    await clickItem(settings[j + 1], page);
+                    await clickItem(actions[j].settings.xpath, page, 0, actions[j].settings.timeout);
                     break;
                 case "LoopItem" :
-                    await loop(settings[j + 1].settings, settings[j + 1].actions, page);
+                    await loop(actions[j].settings, actions[j].actions, page);
                     break;
             }
         }
@@ -46,29 +51,45 @@ async function loop(settings, actions, page) {
 
 (async () => {
     myActions = [
-
         {
             "id" : 1,
             "name" : "LoopItem",
             "actionType" : "LoopItem",
-            "settings" : [10, `//span[@class="brand"]`, `//figcaption/a/span[@class="name"]`, `//span[@class="price"]`],
-            "actions" : ["ExtractData", "ExtractData", "ExtractData"]
+            "settings" : {loopCounts: 10, timeout: 0},
+            "actions" : [{
+                "id" : 3,
+                "name" : "ExtractData",
+                "actionType" : "ExtractData",
+                "settings" : {xpath:`//span[@class="brand"]`, index: 0, timeout: 0},
+                "actions" : []
+            }, {
+                "id" : 3,
+                "name" : "ExtractData",
+                "actionType" : "ExtractData",
+                "settings" : {xpath:`//figcaption/a/span[@class="name"]`, index: 0, timeout: 0},
+                "actions" : []
+            }, {
+                "id" : 3,
+                "name" : "ExtractData",
+                "actionType" : "ExtractData",
+                "settings" : {xpath:`//span[@class="price"]`, index: 0, timeout: 0},
+                "actions" : []
+            }]
         },
         {
             "id" : 2,
             "name" : "ClickItem",
             "actionType" : "ClickItem",
-            "settings" : [`//ul[@class="pagination"]/li[@class="arrow"]/a[@title="Next"]`],
+            "settings" : {xpath:`//ul[@class="pagination"]/li[@class="arrow"]/a[@title="Next"]`, index: 0, timeout: 0},
             "actions" : []
         },
         {
             "id" : 3,
             "name" : "ExtractData",
             "actionType" : "ExtractData",
-            "settings" : [`//span[@class="brand"]`],
+            "settings" : {xpath:`//span[@class="brand"]`, index: 0, timeout: 0},
             "actions" : []
         }
-        
     ]
 
     let urlCurrent = `https://www.theiconic.com.au/kids-baby-shoes/`;
@@ -90,10 +111,10 @@ async function loop(settings, actions, page) {
                 await loop(myActions[i].settings, myActions[i].actions, page);
                 break;
             case "ClickItem" :
-                await clickItem(myActions[i].settings[0], page);
+                await clickItem(myActions[i].settings.xpath, page, myActions[i].settings.index, myActions[i].settings.timeout);
                 break;
             case "ExtractData":
-                let data = await extractData(myActions[i].settings[0], page);
+                let data = await extractData(myActions[i].settings.xpath, page, myActions[i].settings.index, myActions[i].settings.timeout);
                 console.log(data);
                 break;
         }
